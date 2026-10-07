@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contacalorie</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--tx:#1d2330;--mut:#6b7385;--bd:#dfe3ea;--ac:#2a7a4b;--ac2:#e8f3ec;--danger:#c0392b}
+@media (prefers-color-scheme:dark){:root{--bg:#14171d;--card:#1d222b;--tx:#e8ebf1;--mut:#9aa3b5;--bd:#2f3644;--ac:#4cc07e;--ac2:#1f3328;--danger:#ef6b5d}}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
+header{background:var(--card);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:5}
+.wrap{max-width:900px;margin:0 auto;padding:12px}
+h1{font-size:18px;margin:0 0 8px}
+nav{display:flex;gap:6px}
+nav button{flex:1}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;cursor:pointer}
+button.p{background:var(--ac);border-color:var(--ac);color:#fff}
+nav button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+button.d{color:var(--danger)}
+button.s{padding:3px 8px;font-size:13px}
+input,select{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px;min-width:0}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:12px 0}
+.card h2{font-size:16px;margin:0 0 8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row>input[type=text],.row>input[type=search]{flex:1;min-width:140px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:6px;margin-top:8px}
+.stat{background:var(--ac2);border-radius:8px;padding:6px 8px}
+.stat b{display:block;font-size:16px}
+.stat span{font-size:12px;color:var(--mut)}
+.stat.big{grid-column:span 2}
+.item{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--bd)}
+.item:first-child{border-top:0}
+.mut{color:var(--mut);font-size:13px}
+.res{max-height:240px;overflow:auto;margin-top:8px;border:1px solid var(--bd);border-radius:8px}
+.res .item{padding:6px 8px;cursor:pointer}
+.res .item:hover{background:var(--ac2)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:6px 4px;text-align:right;border-bottom:1px solid var(--bd);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--ac2)}
+.scroll{overflow-x:auto}
+.hide{display:none}
+details summary{cursor:pointer;color:var(--mut)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:8px}
+.grid2 label{font-size:12px;color:var(--mut);display:flex;flex-direction:column;gap:2px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="row" style="justify-content:space-between;margin-bottom:8px"><h1 style="margin:0">Contacalorie</h1>
+    <span class="row"><span id="status" class="mut"></span><button id="btnAuth" class="s">Accedi con Google</button></span></div>
+  <nav>
+    <button data-tab="oggi" class="on">Giornata</button>
+    <button data-tab="storico">Storico</button>
+    <button data-tab="backup">Backup</button>
+  </nav>
+</div></header>
+
+<main class="wrap">
+
+<!-- GIORNATA -->
+<section id="tab-oggi">
+  <div class="card">
+    <div class="row">
+      <button data-act="prev">‹</button>
+      <input type="date" id="date">
+      <button data-act="next">›</button>
+      <button data-act="today">Oggi</button>
+    </div>
+    <h2 style="margin-top:12px">Totale giornata</h2>
+    <div id="dayTotals"></div>
+  </div>
+
+  <div class="card"><h2>Pasti del giorno</h2><div id="dayMeals"></div></div>
+
+  <div class="card">
+    <h2>Nuovo pasto</h2>
+    <div class="row">
+      <select id="mealType">
+        <option>Colazione</option><option>Pranzo</option><option>Cena</option><option>Spuntino</option>
+      </select>
+    </div>
+
+    <div class="row" style="margin-top:8px">
+      <input type="search" id="q" placeholder="Cerca alimento (es. pasta, yogurt, pane...)">
+      <button id="btnLocal" class="p">Cerca</button>
+    </div>
+    <div class="mut" style="margin-top:4px">Cerca prima tra i tuoi alimenti già usati, poi online su Open Food Facts.</div>
+    <div id="results" class="res hide"></div>
+
+    <div id="picked" class="hide" style="margin-top:8px">
+      <b id="pickedName"></b> <span class="mut" id="pickedInfo"></span>
+      <div class="row" style="margin-top:6px">
+        <input type="number" id="grams" min="0" step="any" placeholder="Quantità in g" inputmode="decimal">
+        <button id="btnAddItem" class="p">Aggiungi al pasto</button>
+      </div>
+    </div>
+
+    <details style="margin-top:10px">
+      <summary>Inserisci un alimento a mano (valori per 100 g)</summary>
+      <div class="grid2">
+        <label style="grid-column:1/-1">Nome<input type="text" id="mName"></label>
+        <label>Calorie (kcal)<input type="number" step="any" id="m_kcal"></label>
+        <label>Carboidrati (g)<input type="number" step="any" id="m_carbs"></label>
+        <label>di cui zuccheri (g)<input type="number" step="any" id="m_sugars"></label>
+        <label>Fibre (g)<input type="number" step="any" id="m_fiber"></label>
+        <label>Proteine (g)<input type="number" step="any" id="m_protein"></label>
+        <label>Grassi (g)<input type="number" step="any" id="m_fat"></label>
+        <label>di cui saturi (g)<input type="number" step="any" id="m_satfat"></label>
+        <label>Sale (g)<input type="number" step="any" id="m_salt"></label>
+      </div>
+      <div class="row" style="margin-top:8px"><button id="btnManual">Salva alimento e selezionalo</button></div>
+    </details>
+
+    <h2 style="margin-top:14px">Pasto in costruzione</h2>
+    <div id="draft"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="btnAddMeal" class="p">Aggiungi alla giornata</button>
+      <button id="btnClear">Svuota</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input type="text" id="tplName" placeholder="Nome per salvarlo come pasto riutilizzabile">
+      <button id="btnSaveTpl">Salva pasto</button>
+    </div>
+  </div>
+
+  <div class="card"><h2>Pasti salvati</h2><div id="templates"></div></div>
+</section>
+
+<!-- STORICO -->
+<section id="tab-storico" class="hide">
+  <div class="card">
+    <h2>Storico giornaliero</h2>
+    <div class="mut">Clicca su un giorno per vederne il dettaglio.</div>
+    <div class="scroll" id="history" style="margin-top:8px"></div>
+  </div>
+</section>
+
+<!-- BACKUP -->
+<section id="tab-backup" class="hide">
+  <div class="card">
+    <h2>Backup dei dati</h2>
+    <p class="mut">Se hai effettuato l'accesso con Google, i dati sono salvati nel cloud (Firebase) e sincronizzati tra i tuoi dispositivi; il browser ne tiene una copia locale. Senza accesso restano solo in questo browser. Puoi comunque esportare un backup JSON.</p>
+    <div class="row">
+      <button id="btnExport" class="p">Esporta JSON</button>
+      <label class="row"><span>Importa JSON:</span><input type="file" id="fileImport" accept="application/json"></label>
+    </div>
+    <div class="row" style="margin-top:12px"><button id="btnReset" class="d">Cancella tutti i dati</button></div>
+  </div>
+</section>
+
+</main>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,doc,setDoc,deleteDoc,getDoc,getDocs,collection} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA2ZotMg4IxweOPytJM7jQWWTBXQTzHOWo",
+  authDomain: "contacalorie-d2c06.firebaseapp.com",
+  projectId: "contacalorie-d2c06",
+  storageBucket: "contacalorie-d2c06.firebasestorage.app",
+  messagingSenderId: "123912685767",
+  appId: "1:123912685767:web:f3a2fc3f2ac8478cb696e2"
+};
+const fbApp=initializeApp(firebaseConfig);
+const auth=getAuth(fbApp);
+const db=initializeFirestore(fbApp,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
+let user=null;
+
+const NUTR=[['kcal','Calorie','kcal'],['carbs','Carboidrati','g'],['sugars','di cui zuccheri','g'],['fiber','Fibre','g'],['protein','Proteine','g'],['fat','Grassi','g'],['satfat','di cui saturi','g'],['salt','Sale','g']];
+const KEY='contacalorie_v1';
+let S={days:{},foods:[],templates:[]};
+try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r));}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){alert('Impossibile salvare nel browser.');}};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=v=>(+v||0).toLocaleString('it-IT',{maximumFractionDigits:1});
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+
+let date=ymd(new Date());
+let draft=[];
+let picked=null;
+
+function itemVals(it){const o={};NUTR.forEach(([k])=>o[k]=(it.per100[k]||0)*it.grams/100);return o;}
+function sum(items){const t={};NUTR.forEach(([k])=>t[k]=0);items.forEach(it=>{const v=itemVals(it);NUTR.forEach(([k])=>t[k]+=v[k]);});return t;}
+function dayItems(d){return ((S.days[d]||{}).meals||[]).flatMap(m=>m.items);}
+function statsHTML(t){return '<div class="stats">'+NUTR.map(([k,l,u],i)=>`<div class="stat ${i===0?'big':''}"><b>${fmt(t[k])} ${u}</b><span>${l}</span></div>`).join('')+'</div>';}
+
+/* ---------- Giornata ---------- */
+function renderDay(){
+  $('date').value=date;
+  const meals=(S.days[date]||{}).meals||[];
+  $('dayTotals').innerHTML=meals.length?statsHTML(sum(dayItems(date))):'<div class="mut">Nessun pasto inserito.</div>';
+  $('dayMeals').innerHTML=meals.length?meals.map((m,mi)=>`
+    <div style="margin-bottom:14px">
+      <div class="row" style="justify-content:space-between"><b>${esc(m.type)}</b>
+        <button class="s d" data-act="delMeal" data-i="${mi}">Elimina pasto</button></div>
+      ${m.items.map((it,ii)=>`<div class="item"><span>${esc(it.name)} <span class="mut">— ${fmt(it.grams)} g · ${fmt(itemVals(it).kcal)} kcal</span></span>
+        <button class="s d" data-act="delItem" data-i="${mi}" data-j="${ii}">×</button></div>`).join('')}
+      ${statsHTML(sum(m.items))}
+    </div>`).join(''):'<div class="mut">—</div>';
+}
+function renderDraft(){
+  $('draft').innerHTML=draft.length?draft.map((it,i)=>`<div class="item"><span>${esc(it.name)} <span class="mut">— ${fmt(it.grams)} g · ${fmt(itemVals(it).kcal)} kcal</span></span>
+    <button class="s d" data-act="delDraft" data-i="${i}">×</button></div>`).join('')+statsHTML(sum(draft)):'<div class="mut">Nessun alimento aggiunto.</div>';
+}
+function renderTemplates(){
+  $('templates').innerHTML=S.templates.length?S.templates.map((t,i)=>`
+    <div class="item"><span><b>${esc(t.name)}</b> <span class="mut">(${esc(t.type)} · ${fmt(sum(t.items).kcal)} kcal)</span><br>
+      <span class="mut">${t.items.map(it=>esc(it.name)+' '+fmt(it.grams)+' g').join(', ')}</span></span>
+      <span class="row" style="flex-wrap:nowrap">
+        <button class="s p" data-act="tplAdd" data-i="${i}">Aggiungi al giorno</button>
+        <button class="s" data-act="tplLoad" data-i="${i}">Modifica</button>
+        <button class="s d" data-act="tplDel" data-i="${i}">×</button>
+      </span></div>`).join(''):'<div class="mut">Nessun pasto salvato.</div>';
+}
+
+/* ---------- Ricerca alimenti ---------- */
+function showResults(list,msg){
+  const r=$('results');r.classList.remove('hide');
+  r.innerHTML=(msg?`<div class="item mut">${msg}</div>`:'')+list.map((f,i)=>`<div class="item" data-act="pick" data-i="${i}"><span>${esc(f.name)}</span><span class="mut">${fmt(f.per100.kcal)} kcal/100 g</span></div>`).join('');
+  r._list=list;
+}
+function localSearch(q){q=q.toLowerCase();return S.foods.filter(f=>f.name.toLowerCase().includes(q));}
+async function onlineSearch(q){
+  const url='https://it.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(q)+'&search_simple=1&action=process&json=1&page_size=25&fields=product_name,brands,nutriments';
+  const res=await fetch(url);if(!res.ok)throw new Error('HTTP '+res.status);
+  const j=await res.json();
+  return (j.products||[]).filter(p=>p.product_name&&p.nutriments&&p.nutriments['energy-kcal_100g']!=null).map(p=>{
+    const n=p.nutriments,g=k=>+n[k]||0;
+    return{name:p.product_name+(p.brands?' ('+p.brands.split(',')[0].trim()+')':''),
+      per100:{kcal:g('energy-kcal_100g'),carbs:g('carbohydrates_100g'),sugars:g('sugars_100g'),fiber:g('fiber_100g'),protein:g('proteins_100g'),fat:g('fat_100g'),satfat:g('saturated-fat_100g'),salt:g('salt_100g')}};
+  });
+}
+async function doSearch(){
+  const q=$('q').value.trim();if(!q)return;
+  const loc=localSearch(q);
+  showResults(loc,'Ricerca online in corso…');
+  try{
+    const on=await onlineSearch(q);
+    const names=new Set(loc.map(f=>f.name));
+    const all=loc.concat(on.filter(f=>!names.has(f.name)));
+    showResults(all,all.length?'':'Nessun risultato. Puoi inserire l\'alimento a mano.');
+  }catch(e){
+    showResults(loc,'Ricerca online non riuscita'+(loc.length?' (mostro solo i tuoi alimenti).':'. Puoi inserire l\'alimento a mano.'));
+  }
+}
+function setPicked(f){
+  picked=f;$('picked').classList.remove('hide');
+  $('pickedName').textContent=f.name;
+  $('pickedInfo').textContent='· '+fmt(f.per100.kcal)+' kcal / 100 g';
+  $('grams').value='';$('grams').focus();
+}
+function rememberFood(f){
+  if(S.foods.some(x=>x.name===f.name))return false;
+  S.foods.push({name:f.name,per100:f.per100});return true;
+}
+
+/* ---------- Azioni ---------- */
+function addToDay(type,items){
+  if(!items.length)return;
+  const d=S.days[date]||(S.days[date]={meals:[]});
+  d.meals.push({id:uid(),type,items:JSON.parse(JSON.stringify(items))});
+  save();pushDay(date);renderDay();
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;
+  const a=el.dataset.act,i=+el.dataset.i,j=+el.dataset.j;
+  const shift=n=>{const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+n);date=ymd(d);renderDay();};
+  if(a==='prev')shift(-1);
+  else if(a==='next')shift(1);
+  else if(a==='today'){date=ymd(new Date());renderDay();}
+  else if(a==='pick')setPicked($('results')._list[i]);
+  else if(a==='delDraft'){draft.splice(i,1);renderDraft();}
+  else if(a==='delMeal'){if(confirm('Eliminare questo pasto?')){S.days[date].meals.splice(i,1);if(!S.days[date].meals.length)delete S.days[date];save();pushDay(date);renderDay();}}
+  else if(a==='delItem'){const m=S.days[date].meals[i];m.items.splice(j,1);if(!m.items.length)S.days[date].meals.splice(i,1);if(!S.days[date].meals.length)delete S.days[date];save();pushDay(date);renderDay();}
+  else if(a==='tplAdd'){const t=S.templates[i];addToDay(t.type,t.items);}
+  else if(a==='tplLoad'){const t=S.templates[i];draft=JSON.parse(JSON.stringify(t.items));$('mealType').value=t.type;$('tplName').value=t.name;renderDraft();$('draft').scrollIntoView({behavior:'smooth'});}
+  else if(a==='tplDel'){if(confirm('Eliminare il pasto salvato?')){S.templates.splice(i,1);save();pushLists();renderTemplates();}}
+  else if(a==='openDay'){date=el.dataset.d;showTab('oggi');renderDay();window.scrollTo(0,0);}
+});
+$('date').addEventListener('change',e=>{if(e.target.value){date=e.target.value;renderDay();}});
+$('btnLocal').onclick=doSearch;
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+$('btnAddItem').onclick=()=>{
+  const g=parseFloat($('grams').value);
+  if(!picked||!(g>0)){alert('Inserisci una quantità in grammi maggiore di zero.');return;}
+  if(rememberFood(picked))pushLists();save();
+  draft.push({name:picked.name,per100:picked.per100,grams:g});
+  picked=null;$('picked').classList.add('hide');$('results').classList.add('hide');$('q').value='';
+  renderDraft();$('q').focus();
+};
+$('grams').addEventListener('keydown',e=>{if(e.key==='Enter')$('btnAddItem').click();});
+$('btnManual').onclick=()=>{
+  const name=$('mName').value.trim();
+  if(!name){alert('Inserisci il nome dell\'alimento.');return;}
+  const per100={};NUTR.forEach(([k])=>per100[k]=parseFloat($('m_'+k).value)||0);
+  const f={name,per100};
+  const ex=S.foods.findIndex(x=>x.name===name);
+  if(ex>=0)S.foods[ex]=f;else S.foods.push(f);
+  save();pushLists();
+  $('mName').value='';NUTR.forEach(([k])=>$('m_'+k).value='');
+  setPicked(f);
+};
+$('btnClear').onclick=()=>{draft=[];renderDraft();};
+$('btnAddMeal').onclick=()=>{
+  if(!draft.length){alert('Aggiungi almeno un alimento.');return;}
+  addToDay($('mealType').value,draft);draft=[];$('tplName').value='';renderDraft();
+};
+$('btnSaveTpl').onclick=()=>{
+  if(!draft.length){alert('Aggiungi almeno un alimento.');return;}
+  const type=$('mealType').value;
+  const name=$('tplName').value.trim()||type;
+  const t={name,type,items:JSON.parse(JSON.stringify(draft))};
+  const ex=S.templates.findIndex(x=>x.name===name);
+  if(ex>=0){if(!confirm('Esiste già un pasto salvato con questo nome. Sovrascriverlo?'))return;S.templates[ex]=t;}
+  else S.templates.push(t);
+  save();pushLists();renderTemplates();
+};
+
+/* ---------- Storico ---------- */
+function renderHistory(){
+  const days=Object.keys(S.days).filter(d=>S.days[d].meals&&S.days[d].meals.length).sort().reverse();
+  if(!days.length){$('history').innerHTML='<div class="mut">Ancora nessun dato.</div>';return;}
+  const rows=days.map(d=>({d,t:sum(dayItems(d))}));
+  const avg={};NUTR.forEach(([k])=>avg[k]=rows.reduce((a,r)=>a+r.t[k],0)/rows.length);
+  const dl=d=>new Date(d+'T12:00:00').toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  $('history').innerHTML='<table><thead><tr><th>Data</th>'+NUTR.map(([k,l,u])=>`<th>${l.replace('di cui ','')}<br><span class="mut">${u}</span></th>`).join('')+'</tr></thead><tbody>'+
+    rows.map(r=>`<tr data-act="openDay" data-d="${r.d}"><td>${dl(r.d)}</td>${NUTR.map(([k])=>`<td>${fmt(r.t[k])}</td>`).join('')}</tr>`).join('')+
+    `</tbody><tfoot><tr><td><b>Media (${rows.length} gg)</b></td>${NUTR.map(([k])=>`<td><b>${fmt(avg[k])}</b></td>`).join('')}</tr></tfoot></table>`;
+}
+
+/* ---------- Backup ---------- */
+$('btnExport').onclick=()=>{
+  const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='contacalorie-backup-'+ymd(new Date())+'.json';a.click();URL.revokeObjectURL(a.href);
+};
+$('fileImport').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const j=JSON.parse(r.result);
+      if(!j||typeof j.days!=='object')throw 0;
+      if(!confirm('Importando, i dati attuali verranno sostituiti. Continuare?'))return;
+      S={days:j.days||{},foods:j.foods||[],templates:j.templates||[]};
+      save();renderAll();pushAll();alert('Importazione completata.');
+    }catch(err){alert('File non valido.');}
+    e.target.value='';
+  };
+  r.readAsText(f);
+};
+$('btnReset').onclick=()=>{
+  if(confirm('Cancellare TUTTI i dati (storico, alimenti, pasti salvati)?')){S={days:{},foods:[],templates:[]};save();renderAll();pushAll();}
+};
+
+/* ---------- Tab ---------- */
+function showTab(t){
+  ['oggi','storico','backup'].forEach(n=>{$('tab-'+n).classList.toggle('hide',n!==t);});
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  if(t==='storico')renderHistory();
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+
+/* ---------- Cloud (Firebase) ---------- */
+const uref=(...p)=>doc(db,'users',user.uid,...p);
+function setStatus(t){$('status').textContent=t;}
+function onErr(e){
+  console.error(e);
+  setStatus(e&&e.code==='permission-denied'?'Permesso negato: controlla le regole Firestore':'Errore/offline: dati salvati solo in locale');
+}
+function pushDay(d){
+  if(!user)return;
+  const m=S.days[d];
+  (m&&m.meals&&m.meals.length?setDoc(uref('days',d),{meals:m.meals}):deleteDoc(uref('days',d))).catch(onErr);
+}
+function pushLists(){
+  if(!user)return;
+  Promise.all([setDoc(uref('meta','foods'),{list:S.foods}),setDoc(uref('meta','templates'),{list:S.templates})]).catch(onErr);
+}
+async function pushAll(){
+  if(!user)return;
+  try{
+    const snap=await getDocs(collection(db,'users',user.uid,'days'));
+    const ops=[];
+    snap.forEach(d=>{if(!S.days[d.id])ops.push(deleteDoc(d.ref));});
+    Object.keys(S.days).forEach(d=>ops.push(setDoc(uref('days',d),{meals:S.days[d].meals})));
+    ops.push(setDoc(uref('meta','foods'),{list:S.foods}),setDoc(uref('meta','templates'),{list:S.templates}));
+    await Promise.all(ops);
+  }catch(e){onErr(e);}
+}
+async function pull(){
+  setStatus('Sincronizzazione…');
+  try{
+    const [ds,fs,ts]=await Promise.all([getDocs(collection(db,'users',user.uid,'days')),getDoc(uref('meta','foods')),getDoc(uref('meta','templates'))]);
+    const cloud={};ds.forEach(d=>cloud[d.id]={meals:d.data().meals||[]});
+    const foods=fs.exists()?(fs.data().list||[]):[];
+    const tpls=ts.exists()?(ts.data().list||[]):[];
+    const flag='contacalorie_migrated_'+user.uid;
+    let first=false;
+    try{first=!localStorage.getItem(flag);}catch(e){}
+    if(first){ // primo accesso su questo dispositivo: unisco i dati locali a quelli nel cloud
+      Object.keys(S.days).forEach(d=>{if(!cloud[d])cloud[d]=S.days[d];});
+      const fn=new Set(foods.map(f=>f.name));S.foods.forEach(f=>{if(!fn.has(f.name))foods.push(f);});
+      const tn=new Set(tpls.map(t=>t.name));S.templates.forEach(t=>{if(!tn.has(t.name))tpls.push(t);});
+    }
+    S={days:cloud,foods,templates:tpls};
+    save();renderAll();
+    if(first){await pushAll();try{localStorage.setItem(flag,'1');}catch(e){}}
+    setStatus(user.email||'Sincronizzato');
+  }catch(e){onErr(e);}
+}
+$('btnAuth').onclick=async()=>{
+  if(user){if(confirm('Disconnettere l\'account? I dati restano nel cloud.'))await signOut(auth);return;}
+  try{await signInWithPopup(auth,new GoogleAuthProvider());}
+  catch(e){
+    if(e.code==='auth/unauthorized-domain')alert('Dominio non autorizzato: aggiungilo in Firebase → Authentication → Impostazioni → Domini autorizzati.');
+    else if(e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request')alert('Accesso non riuscito: '+(e.code||e.message));
+  }
+};
+onAuthStateChanged(auth,u=>{
+  user=u;
+  $('btnAuth').textContent=u?'Esci':'Accedi con Google';
+  if(u)pull();else setStatus('Non connesso: dati solo su questo dispositivo');
+});
+
+function renderAll(){renderDay();renderDraft();renderTemplates();renderHistory();}
+renderAll();
+</script>
+</body>
+</html>
