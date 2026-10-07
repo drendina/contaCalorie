@@ -133,6 +133,22 @@ details summary{cursor:pointer;color:var(--mut)}
 <!-- STORICO -->
 <section id="tab-storico" class="hide">
   <div class="card">
+    <h2>Grafico</h2>
+    <div class="row">
+      <select id="chartMetric">
+        <option value="kcal">Calorie</option><option value="carbs">Carboidrati</option><option value="sugars">Zuccheri</option>
+        <option value="fiber">Fibre</option><option value="protein">Proteine</option><option value="fat">Grassi</option>
+        <option value="satfat">Grassi saturi</option><option value="salt">Sale</option>
+      </select>
+      <select id="chartRange">
+        <option value="7">Ultimi 7 giorni</option><option value="14">Ultimi 14 giorni</option>
+        <option value="30" selected>Ultimi 30 giorni</option><option value="90">Ultimi 90 giorni</option>
+        <option value="0">Tutto lo storico</option>
+      </select>
+    </div>
+    <div id="chart" style="margin-top:8px"></div>
+  </div>
+  <div class="card">
     <h2>Storico giornaliero</h2>
     <div class="mut">Clicca su un giorno per vederne il dettaglio.</div>
     <div class="scroll" id="history" style="margin-top:8px"></div>
@@ -325,10 +341,48 @@ $('btnSaveTpl').onclick=()=>{
 };
 
 /* ---------- Storico ---------- */
+function renderChart(rows){
+  const k=$('chartMetric').value,n=+$('chartRange').value;
+  const [,label,unit]=NUTR.find(x=>x[0]===k);
+  const map={};rows.forEach(r=>map[r.d]=r.t[k]);
+  const today=new Date();today.setHours(12,0,0,0);
+  const newest=new Date(rows[0].d+'T12:00:00');
+  const end=newest>today?newest:today;
+  let start=new Date(n>0?end:new Date(rows[rows.length-1].d+'T12:00:00'));
+  if(n>0)start.setDate(start.getDate()-(n-1));
+  const cap=new Date(end);cap.setDate(cap.getDate()-365);
+  if(start<cap)start=cap;
+  const days=[];
+  for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1))days.push(ymd(d));
+  const vals=days.map(d=>map[d]);
+  const present=vals.filter(v=>v!==undefined);
+  if(!present.length){$('chart').innerHTML='<div class="mut">Nessun dato nel periodo selezionato.</div>';return;}
+  const avg=present.reduce((a,b)=>a+b,0)/present.length;
+  const max=Math.max(...present,1)*1.1;
+  const W=700,H=260,L=46,R=10,T=10,B=28,pw=W-L-R,ph=H-T-B,slot=pw/days.length,bw=Math.max(1,slot*0.7);
+  const Y=v=>T+ph-v/max*ph;
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(label)} per giorno">`;
+  for(let i=0;i<=4;i++){
+    const v=max/4*i,y=Y(v);
+    s+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" style="stroke:var(--bd)"/><text x="${L-6}" y="${y+4}" text-anchor="end" font-size="11" style="fill:var(--mut)">${fmt(v)}</text>`;
+  }
+  vals.forEach((v,i)=>{
+    if(v===undefined)return;
+    const x=L+i*slot+(slot-bw)/2,y=Y(v);
+    s+=`<rect data-act="openDay" data-d="${days[i]}" x="${x}" y="${y}" width="${bw}" height="${T+ph-y}" rx="2" style="fill:var(--ac);cursor:pointer"><title>${days[i].slice(8)}/${days[i].slice(5,7)}: ${fmt(v)} ${unit}</title></rect>`;
+  });
+  s+=`<line x1="${L}" x2="${W-R}" y1="${Y(avg)}" y2="${Y(avg)}" stroke-dasharray="5 4" style="stroke:var(--danger)"/>`;
+  const step=Math.ceil(days.length/7);
+  days.forEach((d,i)=>{if(i%step===0)s+=`<text x="${L+i*slot+slot/2}" y="${H-8}" text-anchor="middle" font-size="11" style="fill:var(--mut)">${d.slice(8)}/${d.slice(5,7)}</text>`;});
+  s+='</svg>';
+  $('chart').innerHTML=s+`<div class="mut">${esc(label)} (${unit}) · linea tratteggiata: media ${fmt(avg)} ${unit} sui giorni con dati · giorni registrati: ${present.length} su ${days.length}. Clicca una barra per aprire il giorno.</div>`;
+}
+$('chartMetric').onchange=$('chartRange').onchange=()=>renderHistory();
 function renderHistory(){
   const days=Object.keys(S.days).filter(d=>S.days[d].meals&&S.days[d].meals.length).sort().reverse();
-  if(!days.length){$('history').innerHTML='<div class="mut">Ancora nessun dato.</div>';return;}
+  if(!days.length){$('history').innerHTML='<div class="mut">Ancora nessun dato.</div>';$('chart').innerHTML='<div class="mut">Ancora nessun dato.</div>';return;}
   const rows=days.map(d=>({d,t:sum(dayItems(d))}));
+  renderChart(rows);
   const avg={};NUTR.forEach(([k])=>avg[k]=rows.reduce((a,r)=>a+r.t[k],0)/rows.length);
   const dl=d=>new Date(d+'T12:00:00').toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
   $('history').innerHTML='<table><thead><tr><th>Data</th>'+NUTR.map(([k,l,u])=>`<th>${l.replace('di cui ','')}<br><span class="mut">${u}</span></th>`).join('')+'</tr></thead><tbody>'+
